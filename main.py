@@ -2,7 +2,7 @@ import uvicorn, jwt
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from routes import question, auth, exam, subject, candidate
+from routes import question, auth, exam, subject, candidate, exam_question
 
 security = HTTPBearer()
 
@@ -48,6 +48,7 @@ app.include_router(auth.router)
 app.include_router(exam.router)
 app.include_router(subject.router)
 app.include_router(candidate.router)
+app.include_router(exam_question.router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

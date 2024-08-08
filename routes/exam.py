@@ -63,3 +63,39 @@ def create_exam(db_conn: db.get_db = Depends(), data: DataExam = Body()):
     except Exception as e:
         print(e)
         return {"err": True, "msg": "Lỗi dữ liệu"}
+
+
+@router.post("/get-exams")
+def get_exams(db_conn: db.get_db = Depends()):
+    sql = "select * from exams"
+    cursor = db_conn.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    return {"message": result}
+
+
+@router.post("/update-exam")
+def update_exam(exam, db_conn: db.get_db = Depends()):
+    sql = ("update exams"
+           f"set ({exam.subject_id}, {exam.exam_code}, {exam.duration}, {exam.number_of_question})"
+           f"where id = {exam.id}")
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute(sql)
+        db_conn.commit()
+        return {f"message: update exam success"}
+    except Exception as e:
+        return {f"message: {e}"}
+
+
+@router.post("/delete-exam")
+def delete_exam(exam_id, db_conn: db.get_db = Depends()):
+    sql = ("delete from exams"
+           f"where id = {exam_id}")
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute(sql)
+        db_conn.commit()
+        return {f"message: delete exam success"}
+    except Exception as e:
+        return {f"message: {e}"}
