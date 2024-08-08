@@ -1,40 +1,53 @@
 import uvicorn, jwt
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from routes import question, auth, exam, subject, candidate
-
-security = HTTPBearer()
-
-
-async def get_token_data(token: str):
-    try:
-        payload = jwt.decode(
-            token, "DQ;/_mU9<}La6%wJhF48:(Tg~#bK,BSy", algorithms=["HS256"]
-        )
-        return payload
-    except jwt.exceptions.DecodeError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-async def auth_middleware(request: Request, call_next):
-    credentials: HTTPAuthorizationCredentials = await security(request)
-    token = credentials.credentials
-
-    print(token)
-
-    if not token:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    payload = await get_token_data(token)
-    request.state.user = payload
-
-    response = await call_next(request)
-    return response
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
+# ====== PERMISSION ======
+# guest, importer, editor, generator, scheduler, candidate
+list_permission = {
+    "POST|/auth/sign-in": ["guest"],
+    "GET|/auth/me": ["importer", "editor", "generator", "scheduler", "candidate"],
+    "POST|/candidate": ["candidate"],
+    "GET|/candidate": ["candidate"],
+    "POST|/exam": ["generator"],
+    "POST|/question/upload": ["importer"],
+    "POST|/question/import": ["importer"],
+    "GET|/subject": ["generator"],
+}
+
+
+@app.middleware("http")
+async def auth_middleware(request, call_next):
+    if request.url.path.startswith("/static"):
+        return await call_next(request)
+    role = "guest"
+    authorization = request.headers.get("Authorization")
+    if authorization:
+        token = authorization.replace("Bearer ", "")
+        payload = jwt.decode(
+            token, "DQ;/_mU9<}La6%wJhF48:(Tg~#bK,BSy", algorithms=["HS256"]
+        )
+        request.state.user = payload
+        role = payload["role"]
+    has_permission = list_permission.get(f"{request.method}|{request.url.path}")
+    if isinstance(has_permission, list) and role in has_permission:
+        return await call_next(request)
+    return JSONResponse(status_code=403, content="Unauthorized")
+
+
+# ====== ROUTES ======
+app.include_router(question.router)
+app.include_router(auth.router)
+app.include_router(exam.router)
+app.include_router(subject.router)
+app.include_router(candidate.router)
+
+# ====== CORS ======
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,11 +56,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(question.router)
-app.include_router(auth.router)
-app.include_router(exam.router)
-app.include_router(subject.router)
-app.include_router(candidate.router)
+# ====== STATIC FILES ======
+app.mount("/static", StaticFiles(directory="public"), name="static")
 
+# ====== RUN ======
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

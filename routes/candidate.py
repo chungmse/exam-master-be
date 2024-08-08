@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Request
 from db import db
 from pydantic import BaseModel
 import datetime
@@ -6,8 +6,8 @@ import datetime
 router = APIRouter(prefix="/candidate", tags=["candidate"])
 
 
-@router.get("/")
-def get_exam(db_conn: db.get_db = Depends()):
+@router.get("")
+def get_exam(db_conn: db.get_db = Depends(), request: Request = None):
     cursor = db_conn.cursor()
     time_now = int(datetime.datetime.now().timestamp())
     cursor.execute(
@@ -27,7 +27,7 @@ def get_exam(db_conn: db.get_db = Depends()):
     # Check if user has already taken the exam
     cursor.execute(
         "SELECT * FROM exam_users WHERE user_id = ? AND session_id = ?",
-        (5, exam_session["id"]),
+        (request.state.user["id"], exam_session["id"]),
     )
     user_exam = cursor.fetchone()
     if user_exam is not None:
@@ -83,8 +83,10 @@ class DataExam(BaseModel):
     list_answers: dict
 
 
-@router.post("/")
-def submit_exam(db_conn: db.get_db = Depends(), data: DataExam = Body()):
+@router.post("")
+def submit_exam(
+    db_conn: db.get_db = Depends(), data: DataExam = Body(), request: Request = None
+):
     cursor = db_conn.cursor()
     cursor.execute("SELECT * FROM exam_questions WHERE exam_id = ?", (data.exam_id,))
     questions = cursor.fetchall()
@@ -101,7 +103,7 @@ def submit_exam(db_conn: db.get_db = Depends(), data: DataExam = Body()):
 
     cursor.execute(
         "INSERT INTO exam_users (user_id, session_id, score) VALUES (?, ?, ?)",
-        (5, data.session_id, total_mark),
+        (request.state.user["id"], data.session_id, total_mark),
     )
 
     db_conn.commit()

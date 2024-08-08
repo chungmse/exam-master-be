@@ -4,7 +4,7 @@ from db import db
 router = APIRouter(prefix="/subject", tags=["subject"])
 
 
-@router.get("/")
+@router.get("")
 def get_subject(db_conn: db.get_db = Depends()):
     cursor = db_conn.cursor()
     cursor.execute("SELECT * FROM subjects")

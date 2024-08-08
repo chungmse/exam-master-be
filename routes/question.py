@@ -1,7 +1,7 @@
-import os, io
+import os, io, time, uuid
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from docx import Document
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Tuple
 from pydantic import BaseModel
 from db import db
 
@@ -9,7 +9,6 @@ router = APIRouter(prefix="/question", tags=["question"])
 
 
 class QuestionData(BaseModel):
-    subject_id: int
     question_text: str
     answer: int
     option1: str
@@ -21,66 +20,43 @@ class QuestionData(BaseModel):
     mix: int
 
 
-Images_dir = "public/img"
-if not os.path.exists(Images_dir):
-    os.makedirs(Images_dir)
-
-
-class ImportRequest(BaseModel):
-    file_name: str
-
-
-class ErrorDetail(BaseModel):
-    table_index: int
-    row_index: int
-    message: str
-
-
-@router.post("/")
-def question_root(db_conn: db.get_db = Depends()):
-    cursor = db_conn.cursor()
-    cursor.execute("SELECT 'Another example route!' as message")
-    result = cursor.fetchone()
-    return {"message": result["message"]}
-
-
 def validate_data(question_data) -> Tuple[bool, str]:
     # Kiểm tra kiểu dữ liệu của từng ô
     if question_data[0] is None or not isinstance(question_data[0], int):  # subject_id
-        return False, "Subject ID must be an integer"
+        return False, "Câu hỏi phải đặt thành số"
     if (
         question_data[1] is None
         or not isinstance(question_data[1], str)
         or not question_data[1]
     ):  # question_text
-        return False, "Question text must be a non-empty string"
+        return False, "Nội dung câu hỏi không được để trống"
     if (
         question_data[2] is None
         or not isinstance(question_data[2], int)
         or question_data[2] not in [1, 2, 3, 4]
     ):  # answer
-        return False, "Answer must be an integer (1, 2, 3, or 4)"
+        return False, "Câu hỏi phải đúng kí tự (A, B, C, or D)"
     for i in range(3, 7):  # option1 to option4
         if (
             question_data[i] is None
             or not isinstance(question_data[i], str)
             or not question_data[i]
         ):
-            return False, f"Option {i - 2} must be a non-empty string"
+            return False, f"Đáp án {i - 2} không được để trống"
     if question_data[7] is None or not isinstance(question_data[7], float):  # mark
-        return False, "Mark must be a float"
+        return False, "Điểm phải là giá trị số thập phân"
     if (
         question_data[8] is None
         or not isinstance(question_data[8], str)
         or not question_data[8]
     ):  # unit
-        return False, "Unit must be a non-empty string"
+        return False, "Chương nội dung không được để trống"
     if (
         question_data[9] is None
         or not isinstance(question_data[9], int)
         or question_data[9] not in [0, 1]
     ):  # mix
-        return False, "Mix must be an integer (0 or 1)"
+        return False, "Chỉ lựa chọn có hoặc không"
 
     return True, ""
 
@@ -95,7 +71,6 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
     doc = Document(io.BytesIO(file_contents))
     data = []
     errors = []
-    # subject_id = 1
     question_count = 0
 
     for paragraph in doc.paragraphs:
@@ -114,7 +89,6 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
 
     for table_index, table in enumerate(doc.tables):
         question_data = [None] * 10  # Tạo danh sách để chứa thông tin câu hỏi
-        # question_data[0] = subject_id
         question_count += 1
         for row_index, row in enumerate(table.rows):
             cell_data = []
@@ -132,9 +106,9 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
                                     image_part = doc.part.related_parts[rId]
                                     image_bytes = image_part.blob
                                     image_name = (
-                                        f"{table_index + 1}_{row_index + 1}.jpg"
+                                        f"{uuid.uuid4().hex[:8]}_{int(time.time())}.png"
                                     )
-                                    image_path = os.path.join(Images_dir, image_name)
+                                    image_path = os.path.join("public/img", image_name)
                                     with open(image_path, "wb") as img_file:
                                         img_file.write(image_bytes)
                                     cell_data[-1] += f" [img:{image_name}]"
@@ -179,7 +153,6 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
         if valid:
             data.append(
                 QuestionData(
-                    subject_id=question_data[0],
                     question_text=question_data[1],
                     answer=question_data[2],
                     option1=question_data[3],
@@ -245,18 +218,39 @@ async def upload_file(file: UploadFile = File(...)):
 
     return {
         "subject": subject,
+        "lecturer": lecturer,
         "number_of_questions": expected_number_of_quiz,
         "date": date,
         "list_questions": processed_data,
     }
 
 
+class ProcessedData(BaseModel):
+    subject: str
+    number_of_questions: int
+    lecturer: str
+    date: str
+    list_questions: List[QuestionData]
+
+
 @router.post("/import")
-def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Depends()):
+def question_import(processed_data: ProcessedData, db_conn: db.get_db = Depends()):
     try:
         cursor = db_conn.cursor()
 
-        for question_data in processed_data:
+        cursor.execute(
+            """
+            SELECT * FROM subjects WHERE subject_name = ?
+        """,
+            (processed_data.subject,),
+        )
+
+        subject_data = cursor.fetchone()
+
+        if subject_data is None:
+            return {"err": True, "msg": "Môn học không tồn tại"}
+
+        for question_data in processed_data.list_questions:
             sql = """
                     INSERT INTO questions (
                         subject_id, question_text, answer, option1, option2, option3, option4, mark, unit, mix
@@ -265,7 +259,7 @@ def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Dep
             cursor.execute(
                 sql,
                 (
-                    question_data.subject_id,
+                    subject_data["id"],
                     question_data.question_text,
                     question_data.answer,
                     question_data.option1,
@@ -279,7 +273,6 @@ def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Dep
             )
 
         db_conn.commit()
-
-        return {"message": "Data imported successfully"}
+        return {"message": "Thêm dữ liệu thành công"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
