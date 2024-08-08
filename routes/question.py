@@ -85,9 +85,11 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
     doc = Document(io.BytesIO(file_contents))
     data = []
     errors = []
+    subject_id = 1
 
     for table_index, table in enumerate(doc.tables):
         question_data = [None] * 10  # Tạo danh sách để chứa thông tin câu hỏi
+        question_data[0] = subject_id
         for row_index, row in enumerate(table.rows):
             cell_data = []
             for cell in row.cells:
@@ -108,7 +110,6 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
                                         img_file.write(image_bytes)
                                     cell_data[-1] += f" [img:{image_name}]"
             if row_index == 0:
-                question_data[0] = 1  # subject_id giả định
                 question_data[1] = cell_data[1]  # Nội dung câu hỏi
             elif row_index == 1:
                 question_data[3] = cell_data[1]  # Đáp án a
@@ -161,6 +162,7 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
                 "row_index": row_index + 1,
                 "message": message
             })
+        subject_id +=1
     return data, errors  # Move this line outside the loop
 
 @router.post("/upload")
@@ -174,23 +176,17 @@ async def upload_file(file: UploadFile = File(...)):
     if not processed_data and not errors:
         raise HTTPException(status_code=422, detail="No valid data could be extracted from the file")
 
-    temp_storage[file.filename] = processed_data
+    if errors:
+        return JSONResponse(status_code=422, content={"err": 1, "msg": "Errors found in the document", "details": errors})
 
-    return {"err": 0, "details": errors, "data": processed_data}
+    return {"err": 0, "data": processed_data}
 
 @router.post("/import")
-def question_import(import_request: ImportRequest, db_conn: db.get_db = Depends()):
-    file_name = import_request.file_name
-    if file_name not in temp_storage:
-        raise HTTPException(status_code=400, detail="File not found in temporary storage")
+def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Depends()):
     try:
         cursor = db_conn.cursor()
-        data = temp_storage[file_name]
 
-        print("Data to be imported: ", data)  # Thêm dòng này để ghi log
-
-
-        for question_data in data:
+        for question_data in processed_data:
             sql = '''
                     INSERT INTO questions (
                         subject_id, question_text, answer, option1, option2, option3, option4, mark, unit, mix
@@ -203,7 +199,6 @@ def question_import(import_request: ImportRequest, db_conn: db.get_db = Depends(
             ))
 
         db_conn.commit()
-        del temp_storage[file_name]
 
         return {"message": "Data imported successfully"}
     except Exception as e:
