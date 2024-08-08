@@ -1,5 +1,11 @@
 import sqlite3
 import random
+import datetime
+
+nowRaw = datetime.datetime.now()
+now = datetime.datetime.now().timestamp()
+one_hour_ago = (nowRaw - datetime.timedelta(hours=1)).timestamp()
+one_hour_later = (nowRaw + datetime.timedelta(hours=10)).timestamp()
 
 # Connect to SQLite database
 conn = sqlite3.connect("db/exammaster.db")
@@ -9,16 +15,16 @@ cursor = conn.cursor()
 cursor.execute(
     """
 INSERT INTO users (username, password, role) VALUES 
-('user1', 'password1', 'importer'),
-('user2', 'password2', 'editor'),
-('user3', 'password3', 'generator'),
-('user4', 'password4', 'scheduler'),
-('user5', 'password5', 'candidate'),
-('user6', 'password6', 'candidate'),
-('user7', 'password7', 'candidate'),
-('user8', 'password8', 'candidate'),
-('user9', 'password9', 'candidate'),
-('user10', 'password10', 'candidate');
+('kienpt', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'importer'),
+('editor', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'editor'),
+('anhdt', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'generator'),
+('scheduler', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'scheduler'),
+('chungnv', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate'),
+('candidate1', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate'),
+('candidate2', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate'),
+('candidate3', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate'),
+('candidate4', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate'),
+('candidate5', '$2b$12$vxryEPr9xn4jxFAGH0q9zuW63s0gjlXyNWrwUlKzTBsB3iHBa6bu6', 'candidate');
 """
 )
 
@@ -111,26 +117,39 @@ for exam_id in range(1, 6):
         )
 
 # Insert sample data into exam_sessions table
+
 cursor.execute(
     """
 INSERT INTO exam_sessions (exam_id, start_time, end_time) VALUES 
-(1, '2024-09-01 09:00:00', '2024-09-01 10:00:00'),
-(2, '2024-09-01 11:00:00', '2024-09-01 12:00:00'),
-(3, '2024-09-02 09:00:00', '2024-09-02 10:00:00'),
-(4, '2024-09-02 11:00:00', '2024-09-02 12:00:00'),
-(5, '2024-09-03 09:00:00', '2024-09-03 10:00:00');
-"""
+(1, ?, ?),
+(2, ?, ?),
+(3, ?, ?),
+(4, ?, ?),
+(5, ?, ?);
+""",
+    (
+        one_hour_ago,
+        one_hour_later,
+        datetime.datetime(2024, 9, 1, 11, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 1, 12, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 2, 9, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 2, 10, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 2, 11, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 2, 12, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 3, 9, 0, 0).timestamp(),
+        datetime.datetime(2024, 9, 3, 10, 0, 0).timestamp(),
+    ),
 )
 
 # Insert sample data into exam_users table
 cursor.execute(
     """
 INSERT INTO exam_users (user_id, session_id, score) VALUES 
-(5, 1, 85.0),
-(5, 2, 90.0),
-(5, 3, 75.0),
-(5, 4, 80.0),
-(5, 5, 95.0);
+(6, 1, 85.0),
+(6, 2, 90.0),
+(6, 3, 75.0),
+(6, 4, 80.0),
+(6, 5, 95.0);
 """
 )
 
