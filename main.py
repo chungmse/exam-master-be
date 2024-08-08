@@ -1,5 +1,4 @@
-import uvicorn
-import jwt
+import uvicorn, jwt
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
