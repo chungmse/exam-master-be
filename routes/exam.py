@@ -7,6 +7,7 @@ router = APIRouter(prefix="/exam", tags=["exam"])
 
 
 class DataExam(BaseModel):
+    id: int
     subject_id: int
     exam_code: str
     duration: int
@@ -75,10 +76,10 @@ def get_exams(db_conn: db.get_db = Depends()):
 
 
 @router.post("/update-exam")
-def update_exam(exam, db_conn: db.get_db = Depends()):
+def update_exam(data: DataExam = Body(), db_conn: db.get_db = Depends()):
     sql = ("update exams"
-           f"set ({exam.subject_id}, {exam.exam_code}, {exam.duration}, {exam.number_of_question})"
-           f"where id = {exam.id}")
+           f"set ({data.subject_id}, {data.exam_code}, {data.duration}, {data.number_of_question})"
+           f"where id = {data.id}")
     try:
         cursor = db_conn.cursor()
         cursor.execute(sql)
@@ -89,7 +90,7 @@ def update_exam(exam, db_conn: db.get_db = Depends()):
 
 
 @router.post("/delete-exam")
-def delete_exam(exam_id, db_conn: db.get_db = Depends()):
+def delete_exam(exam_id: int, db_conn: db.get_db = Depends()):
     sql = ("delete from exams"
            f"where id = {exam_id}")
     try:

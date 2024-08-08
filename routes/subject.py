@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
+from pydantic import BaseModel
+
 from db import db
 
 router = APIRouter(prefix="/subject", tags=["subject"])
+
+
+class DataSubject(BaseModel):
+    id: int
+    subject_name: str
 
 
 @router.get("/")
@@ -12,18 +19,10 @@ def get_subject(db_conn: db.get_db = Depends()):
     return subjects
 
 
-@router.post("/get-subjects")
-async def get_subjects(db_conn: db.get_db = Depends()):
-    cursor = db_conn.cursor()
-    cursor.execute("select * from subjects")
-    result = cursor.fetchall()
-    return {"message": result}
-
-
 @router.post("/create-subject")
-def create_subject(subject, db_conn: db.get_db = Depends()):
+def create_subject(data: DataSubject = Body(), db_conn: db.get_db = Depends()):
     sql = ("insert into subjects"
-           f"values ({subject.id}, {subject.subject_name})")
+           f"values ({data.id}, {data.subject_name})")
     try:
         cursor = db_conn.cursor()
         cursor.execute(sql)
@@ -34,10 +33,10 @@ def create_subject(subject, db_conn: db.get_db = Depends()):
 
 
 @router.post("/update-subject")
-def update_subject(subject, db_conn: db.get_db = Depends()):
+def update_subject(data: DataSubject = Body(), db_conn: db.get_db = Depends()):
     sql = ("update subjects"
-           f"set ({subject.subject_name})"
-           f"where id = {subject.id}")
+           f"set ({data.subject_name})"
+           f"where id = {data.id}")
     try:
         cursor = db_conn.cursor()
         cursor.execute(sql)
@@ -48,7 +47,7 @@ def update_subject(subject, db_conn: db.get_db = Depends()):
 
 
 @router.post("/delete-subject")
-def delete_subject(subject_id, db_conn: db.get_db = Depends()):
+def delete_subject(subject_id: int, db_conn: db.get_db = Depends()):
     sql = ("delete from subjects"
            f"where id = {subject_id}")
     try:
