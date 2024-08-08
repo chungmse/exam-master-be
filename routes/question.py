@@ -79,17 +79,37 @@ def validate_data(question_data) -> Tuple[bool, str]:
         return False, "Mix must be an integer (0 or 1)"
 
     return True, ""
+subject = None
+lecturer = None
+date = None
+expected_number_of_quiz = None
 
 
 def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
     doc = Document(io.BytesIO(file_contents))
     data = []
     errors = []
-    subject_id = 1
+    # subject_id = 1
+    question_count = 0
+
+    for paragraph in doc.paragraphs:
+        if paragraph.text.startswith("Subject:"):
+            global  subject
+            subject = paragraph.text.split(":")[1].strip()
+        elif paragraph.text.startswith("Number of Quiz:"):
+            global expected_number_of_quiz
+            expected_number_of_quiz = int(paragraph.text.split(":")[1].strip())
+        elif paragraph.text.startswith("Lecturer:"):
+            global  lecturer
+            lecturer = paragraph.text.split(":")[1].strip()
+        elif paragraph.text.startswith("Date:"):
+            global date
+            date = paragraph.text.split(":")[1].strip()
 
     for table_index, table in enumerate(doc.tables):
         question_data = [None] * 10  # Tạo danh sách để chứa thông tin câu hỏi
-        question_data[0] = subject_id
+        # question_data[0] = subject_id
+        question_count += 1
         for row_index, row in enumerate(table.rows):
             cell_data = []
             for cell in row.cells:
@@ -110,6 +130,7 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
                                         img_file.write(image_bytes)
                                     cell_data[-1] += f" [img:{image_name}]"
             if row_index == 0:
+                question_data[0] = table_index + 1
                 question_data[1] = cell_data[1]  # Nội dung câu hỏi
             elif row_index == 1:
                 question_data[3] = cell_data[1]  # Đáp án a
@@ -162,7 +183,12 @@ def process_file(file_contents) -> Tuple[List[QuestionData], List[Dict]]:
                 "row_index": row_index + 1,
                 "message": message
             })
-        subject_id +=1
+    if expected_number_of_quiz is not None and question_count != expected_number_of_quiz:
+        errors.append({
+            "table_index": None,
+            "row_index": None,
+            "message": f"Expected {expected_number_of_quiz} questions, but found {question_count}."
+        })
     return data, errors  # Move this line outside the loop
 
 @router.post("/upload")
@@ -179,7 +205,11 @@ async def upload_file(file: UploadFile = File(...)):
     if errors:
         return JSONResponse(status_code=422, content={"err": 1, "msg": "Errors found in the document", "details": errors})
 
-    return {"err": 0, "data": processed_data}
+    return {
+        "subject": subject,
+        "number_of_questions": expected_number_of_quiz,
+        "date": date,
+        "list_questions": processed_data}
 
 @router.post("/import")
 def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Depends()):
@@ -193,6 +223,7 @@ def question_import(processed_data: List[QuestionData], db_conn: db.get_db = Dep
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 '''
             cursor.execute(sql, (
+
                 question_data.subject_id, question_data.question_text, question_data.answer,
                 question_data.option1, question_data.option2, question_data.option3,
                 question_data.option4, question_data.mark, question_data.unit, question_data.mix
