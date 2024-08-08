@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routes import root, test, example, question, exam_, exam_question_, subject_
+from routes import root, test, example, question, exam, exam_question, subject
 
 app = FastAPI()
 
