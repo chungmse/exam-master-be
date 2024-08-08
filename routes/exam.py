@@ -1,7 +1,7 @@
+import random
 from fastapi import APIRouter, Depends, Body
 from db import db
 from pydantic import BaseModel
-import random
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 
