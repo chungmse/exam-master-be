@@ -37,9 +37,6 @@ def signin(db_conn: db.get_db = Depends(), data: DataSignIn = Body()):
             return {"err": True, "msg": "Không có bài thi nào đang diễn ra"}
 
     # Generate JWT token
-    # ...
-
-    # Generate JWT token
     accessToken = jwt.encode(
         {
             "id": user["id"],

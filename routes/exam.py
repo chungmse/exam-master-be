@@ -13,15 +13,13 @@ class DataExam(BaseModel):
     number_of_questions: int
 
 
-@router.post("/")
+@router.post("")
 def create_exam(db_conn: db.get_db = Depends(), data: DataExam = Body()):
     cursor = db_conn.cursor()
     try:
         # Check if the exam_code is already existed
         cursor.execute(
-            """
-            SELECT * FROM exams WHERE exam_code = ?
-        """,
+            """ SELECT * FROM exams WHERE exam_code = ? """,
             (data.exam_code,),
         )
         exam = cursor.fetchone()
@@ -29,10 +27,7 @@ def create_exam(db_conn: db.get_db = Depends(), data: DataExam = Body()):
             return {"err": True, "msg": "Mã đề thi đã tồn tại"}
         # Save the data exam into the database
         cursor.execute(
-            """
-            INSERT INTO exams (subject_id, exam_code, duration, number_of_questions) VALUES
-            (?, ?, ?, ?)
-        """,
+            """ INSERT INTO exams (subject_id, exam_code, duration, number_of_questions) VALUES (?, ?, ?, ?) """,
             (data.subject_id, data.exam_code, data.duration, data.number_of_questions),
         )
         db_conn.commit()
