@@ -246,6 +246,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     return {
         "subject": subject,
+        "lecturer": lecturer,
         "number_of_questions": expected_number_of_quiz,
         "date": date,
         "list_questions": processed_data,
